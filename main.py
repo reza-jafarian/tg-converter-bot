@@ -1,6 +1,6 @@
 from src.telegram.client import startClient, getClient
 
-import asyncio, traceback, sys
+import asyncio, traceback, sys, os
 
 try:
     import plugins as plugins
@@ -17,7 +17,10 @@ async def main():
     bot = await getClient()
     await startClient()
     bot.parse_mode = 'html'
-
+    
+    if not os.path.exists('sessions'):
+        os.makedirs('sessions', exist_ok=True)
+    
     try:
         await plugins.init(bot)
         await bot.run_until_disconnected()
