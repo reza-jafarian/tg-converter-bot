@@ -1,0 +1,39 @@
+{
+    "start": {
+        "en": "<b>👋 Hello! Welcome.\n\n👇 To continue, choose from the menu below:</b>"
+    },
+
+    "need_subscription": {
+        "en": "<b>🚫 To use the bot, you must first purchase a monthly subscription to the bot.</b>"
+    },
+
+    "select": {
+        "en": "<b>⬇️ Choose one of the options below:</b>"
+    },
+
+    "wait": {
+        "en": "<b>🔄 Please wait, processing ...</b>"
+    },
+
+    "send_file": {
+        "en": "🏷 <b>{}</b> survival\n💡 Please send a zip file\n🗂 Please do not send more than 10,000 accounts"
+    },
+
+    "invalid_file": {
+        "en": "<b>⚠️ Your sent zip file is invalid!</b>"
+    },
+
+    "send_current_password": {
+        "en": "<b>🔑 Send your current password:</b>"
+    },
+
+    "send_new_password": {
+        "en": "<b>🔑 Send your new password:</b>"
+    },
+
+    "done": {
+        "en": "<b>✅ Statistic of process:\n\n🔢 Count all: {}\n🟢 Success: {}\n🟡 Unsuccess: {}\n❌ Invalid: {}\n☑️ Failed: {}</b>"
+    },
+
+    "error": "<b>⚠️ The operation failed, try again later.</b>"
+}
