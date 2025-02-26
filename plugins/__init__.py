@@ -8,16 +8,19 @@ from src.utils.logger import logger
 
 async def init(bot):
     plugins = [
+        importlib.import_module(f'.', f'{__name__}.manage-subscription')
+    ]
+    
+    plugins += [
         importlib.import_module(f'.', f'{__name__}.{file[:-3]}')
         for file in os.listdir(os.path.dirname(__file__))
-        if file[0].isalpha() and file.endswith('.py')
+        if file[0].isalpha() and file.endswith('.py') and file != 'manage-subscription.py'
     ]
 
     modules = {m.__name__.split('.')[-1]: m for m in plugins}
     to_init = (get_init_coro(plugin, bot=bot, modules=modules) for plugin in plugins)
 
     await asyncio.gather(*(filter(None, to_init)))
-
 
 def get_init_coro(plugin, **kwargs):
     p_init = getattr(plugin, 'init', None)

@@ -1,16 +1,18 @@
 from datetime import datetime
 from pathlib import Path
 from typing import Union
+from faker import Faker
 import zipfile
 import random
+import string
 import shutil
 import json
 import glob
 import os
 
-from opentele.api import API, UseCurrentSession, CreateNewSession # type: ignore
-from opentele.tl import TelegramClient # type: ignore
-from opentele.td import TDesktop # type: ignore
+from opentele.api import API, UseCurrentSession, CreateNewSession
+from opentele.tl import TelegramClient
+from opentele.td import TDesktop
 
 from src.telegram.telegram import Telegram
 from src.telegram.client import getClient
@@ -18,7 +20,7 @@ from src.utils.keyboards import start_key
 from src.database.models import User
 from src.utils.logger import logger
 
-def extract_zip_file(zip_path: str, dest_folder: str) -> bool:
+def extract_sessions_zip_file(zip_path: str, dest_folder: str) -> bool:
     try:
         if not os.path.exists(zip_path):
             raise FileNotFoundError(f"[-] ZIP file '{zip_path}' not found.")
@@ -46,6 +48,22 @@ def extract_zip_file(zip_path: str, dest_folder: str) -> bool:
         
         os.rmdir(temp_extract_path)
         
+        return True
+    except Exception as error:
+        logger.error(f'[-] Extract zip file error: {error}')
+        return False
+
+def extract_tdata_zip_file(zip_path: str, dest_folder: str) -> bool:
+    try:
+        if not os.path.exists(zip_path):
+            raise FileNotFoundError(f"[-] ZIP file '{zip_path}' not found.")
+        
+        if not os.path.exists(dest_folder):
+            os.makedirs(dest_folder)
+            
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(dest_folder)
+    
         return True
     except Exception as error:
         logger.error(f'[-] Extract zip file error: {error}')
@@ -5959,224 +5977,354 @@ def generate_random_json(number: str, platform: str = 'desktop') -> dict:
 
     return base_data
 
-async def session_to_tdata(session_path: str, random_uniqe_code: str) -> bool:
+def get_random_profile(name: bool = False, lastname: bool = False, username: bool = False, about: bool = False, profile_photo: bool = False) -> str:
+    fake = Faker()
+    if name:
+        return fake.first_name()
+    elif lastname:
+        return fake.last_name()
+    elif username:
+        base_name = fake.first_name().lower() + fake.last_name().lower()
+        random_digits = str(random.randint(1000, 9999))
+        extra_chars = ''.join(random.choices(string.ascii_lowercase, k=3))
+        return base_name + extra_chars + random_digits
+    elif about:
+        return fake.sentence()
+    elif profile_photo:
+        return 0
+
+async def session_to_tdata(session_path: str, random_uniqe_code: str) -> str:
     try:
         tdata_folder = f'tdata-{random_uniqe_code}'
         if not os.path.exists(tdata_folder):
-            os.makedirs(tdata_folder, exist_ok = True)
+            os.mkdir(tdata_folder)
+        
+        print(Path(session_path).stem)
         
         client = TelegramClient(session_path)
         tdata_path = Path(tdata_folder) / str(Path(session_path).stem) / 'tdata'
         tdesk = await client.ToTDesktop(flag=UseCurrentSession)
         tdesk.SaveTData(tdata_path)
         
-        return True
+        return 'success'
     except Exception as error:
         print(f'[-][session_to_tdata] Error {session_path}: {error}')
-        return False
+        return 'unsuccess'
+
+async def tdata_to_session(tdata_path, random_uniqe_code: str) -> str:
+    pass
+
+async def pppppprocess_method(**kwargs) -> None:
+    user_id = kwargs.get('user_id', 0)
+    random_uniqe_code = kwargs.get('random_uniqe_code', 0)
+    step = kwargs.get('step', 'none')
+    bot = await getClient()
+    session_path = f'sessions/{user_id}/{random_uniqe_code}'
+
+    if not os.path.isdir(session_path) or not os.listdir(session_path):
+        await bot.send_message(entity=user_id, message='<b>⚠️ Folder is empty, try again later!</b>', buttons=start_key())
+        return
+    
+    process_result = {'count': len(glob.glob(f'{session_path}/*.session')), 'success': 0, 'unsuccess': 0, 'invalid': 0, 'error': 0}
+    scan_pattern = os.scandir(session_path) if step == 'check_tdata' else glob.glob(f'{session_path}/*.session')
+    steps_with_telegram = {  # مراحل نیازمند Telegram instance
+        'check_session', 'enable_2fa', 'disable_2fa', 'reset_2fa', 'update_name', 'update_lastname',
+        'update_username', 'update_bio', 'delete_profile_photo', 'delete_lastname', 'delete_username', 'delete_bio'
+    }
+    
+    for account in scan_pattern:
+        number = Path(account).stem
+        json_file = f'{session_path}/{number}.json'
+        json_data = json.load(open(json_file, 'r')) if os.path.exists(json_file) else get_defualt_config(platform='desktop')
+        
+        if step in steps_with_telegram:
+            telegram = Telegram(
+                session_folder=session_path,
+                phone_number=number,
+                api_hash=json_data.get('app_hash', json_data.get('api_hash', 'b18441a1ff607e10a989891a5462e627')),
+                api_id=json_data.get('app_id', json_data.get('api_id', 2040)),
+                app_version=json_data.get('app_version', '5.1.7 x64'),
+                system_version=json_data.get('sdk_version', json_data.get('system_version', json_data.get('sdk', 'Unknown'))),
+                device_model=json_data.get('device_model', 'samsungSM-A025AZ'),
+                lang_code=json_data.get('lang_code', 'en'),
+                system_lang_code=json_data.get('system_lang_code', 'en-us'),
+                lang_pack=json_data.get('lang_pack', 'tdesktop')
+            )
+        
+        async def handle_response(response, zip_name):
+            make_zip_file(zip_filename=f'({step})_{zip_name}-{random_uniqe_code}.zip', file_path=f'{session_path}/{number}.session')
+            process_result[response] += 1
+        
+        if step == 'check_session':
+            await handle_response(await telegram.is_banned(), 'Valid' if response == 'success' else 'Invalid')
+        elif step == 'check_tdata':
+            process_result['success'] += 1 if TDesktop(Path(account) / 'tdata').isLoaded() else 0
+        elif step == 'session_to_json':
+            response = make_zip_file(zip_filename=f'({step})_Valid-{random_uniqe_code}.zip', file_name=f'{number}.json', file_content=generate_random_json(number, 'desktop'))
+            process_result['success' if response else 'unsuccess'] += 1
+        elif step == 'session_to_txt':
+            response = make_txt_file(txt_filename=f'({step})_Valid-{random_uniqe_code}.txt', text=number)
+            process_result['success' if response else 'unsuccess'] += 1
+        elif step == 'session_to_tdata':
+            process_result[await session_to_tdata(f'{session_path}/{number}.session', random_uniqe_code)] += 1
+        elif step == 'enable_2fa':
+            await handle_response(await telegram.enable_2fa(kwargs.get('current_password', 0), kwargs.get('new_password', 0)), 'Valid')
+        elif step == 'disable_2fa':
+            await handle_response(await telegram.disable_2fa(kwargs.get('current_password', 0)), 'Valid')
+        elif step == 'reset_2fa':
+            await handle_response(await telegram.reset_2fa(), 'Valid')
+        elif step.startswith('update_') or step.startswith('delete_'):
+            attr = step.split('_')[-1]
+            response = await telegram.update_profile(**{attr: get_random_profile(**{attr: True})}) if 'update' in step else await telegram.delete_profile(**{attr: True})
+            await handle_response(response, 'Valid')
+    
+    if step == 'session_to_tdata':
+        make_zip_file(zip_filename=f'({step})_Valid-{random_uniqe_code}.zip', folder_name=f'tdata-{random_uniqe_code}')
+        shutil.rmtree(f'tdata-{random_uniqe_code}')
+    
+    shutil.rmtree(session_path)
+    for file in [f'({step})_Valid-{random_uniqe_code}.zip', f'({step})_Invalid-{random_uniqe_code}.zip']:
+        if os.path.exists(file):
+            await bot.send_file(entity=user_id, file=file, buttons=start_key())
+            os.unlink(file)
+    
+    return True, process_result
 
 async def process_method(**kwargs) -> None:
     user_id = kwargs.get('user_id', 0)
     random_uniqe_code = kwargs.get('random_uniqe_code', 0)
     step = kwargs.get('step', 'none')
     bot = await getClient()
+    session_path = f'sessions/{user_id}/{random_uniqe_code}'
     
-    if len(os.listdir(f'sessions/{user_id}/{random_uniqe_code}')) > 0:
-        """
-            - Count:
-                -> Count of all sessions in zip file
-            - Success:
-                -> Mission completed, or account healthy.
-            - Unsuccess:
-                ->  Mission failed, or account restricted.
-            - Invalid:
-                -> Account invalid, multiple IP logins, file damaged, or banned.
-            - Error:
-                -> Failed to connect to the server, please recheck the error file.
-        """
-        process_result = {'count': len(glob.glob(f'sessions/{user_id}/{random_uniqe_code}/*.session')), 'success': 0, 'unsuccess': 0, 'invalid': 0, 'error': 0}
+    if not os.path.isdir(session_path) or not os.listdir(session_path):
+        await bot.send_message(entity=user_id, message='<b>⚠️ Folder is empty, try again later!</b>', buttons=start_key())
+        return
+    
+    """
+        - Count:
+            -> Count of all sessions in zip file
+        - Success:
+            -> Mission completed, or account healthy.
+        - Unsuccess:
+            ->  Mission failed, or account restricted.
+        - Invalid:
+            -> Account invalid, multiple IP logins, file damaged, or banned.
+        - Error:
+            -> Failed to connect to the server, please recheck the error file.
+    """
+    process_result = {'count': len(glob.glob(f'{session_path}/*.session')), 'success': 0, 'unsuccess': 0, 'invalid': 0, 'error': 0}
+    scan_pattern = os.scandir(session_path) if step == 'check_tdata' else glob.glob(f'{session_path}/*.session')
+    steps_with_telegram = {
+        'check_session', 'enable_2fa', 'disable_2fa', 'reset_2fa', 'update_name', 'update_lastname',
+        'update_username', 'update_bio', 'delete_profile_photo', 'delete_lastname', 'delete_username', 'delete_bio',
+        'clear_all_data', 'leave_all_channels', 'leave_all_groups', 'delete_all_chats', 'delete_all_contacts',
+        'join_channel_or_group', 'leave_channel_or_group'
+    }
+    
+    for account in scan_pattern:
+        number = Path(account).stem
+        json_file = f'{session_path}/{number}.json'
+        json_data = json.load(open(json_file, 'r')) if os.path.exists(json_file) else get_defualt_config(platform='desktop')
         
-        for account in glob.glob(f'sessions/{user_id}/{random_uniqe_code}/*.session'):
-            number = Path(account).stem
-            
-            if os.path.exists(f'sessions/{user_id}/{random_uniqe_code}/{number}.json'):
-                json_data = json.load(open(f'sessions/{user_id}/{random_uniqe_code}/{number}.json', 'r'))
-            else:
-                json_data = get_defualt_config(platform='desktop')
-            
-            if step in ['check_session', 'enable_2fa', 'disable_2fa', 'reset_2fa']:
-                telegram = Telegram(
-                    session_folder   = f'sessions/{user_id}/{random_uniqe_code}',
-                    phone_number     = number,
-                    api_hash         = json_data.get('app_hash', json_data.get('api_hash', 'b18441a1ff607e10a989891a5462e627')),
-                    api_id           = json_data.get('app_id', json_data.get('api_id', 2040)),
-                    app_version      = json_data.get('app_version', '5.1.7 x64'),
-                    system_version   = json_data.get('sdk_version', json_data.get('system_version', json_data.get('sdk', 'Unknown'))),
-                    device_model     = json_data.get('device_model', 'samsungSM-A025AZ'),
-                    lang_code        = json_data.get('lang_code', 'en'),
-                    system_lang_code = json_data.get('system_lang_code', 'en-us'),
-                    lang_pack        = json_data.get('lang_pack', 'tdesktop')
-                )
-            
-            # ------------------------ #
-            
-            if step == 'check_session':
-                response = await telegram.is_banned()
-                
-                if response == 'invalid':
-                    make_zip_file(
-                        zip_filename = f'({step})_Invalid-{random_uniqe_code}.zip',
-                        file_path = f'sessions/{user_id}/{random_uniqe_code}/{number}.session'
-                    )
-                elif response == 'success':
-                    make_zip_file(
-                        zip_filename = f'({step})_Valid-{random_uniqe_code}.zip',
-                        file_path = f'sessions/{user_id}/{random_uniqe_code}/{number}.session'
-                    )
-                process_result[response] += 1
-            
-            elif step == 'check_tdata':
-                pass
-            
-            # ------------------------ #
-            
-            elif step == 'session_to_json':
-                json_data = generate_random_json(number = number, platform = 'desktop')
-                response = make_zip_file(
-                    zip_filename = f'({step})_Valid-{random_uniqe_code}.zip',
-                    file_path = f'sessions/{user_id}/{random_uniqe_code}/{number}.session'
-                )
-                response = make_zip_file(
-                    zip_filename = f'({step})_Valid-{random_uniqe_code}.zip',
-                    file_name = f'{number}.json',
-                    file_content = json_data
-                )
-                
-                if response:
-                    process_result['success'] += 1
-                else:
-                    process_result['unsuccess'] += 1
-            
-            elif step == 'session_to_txt':
-                response = make_txt_file(
-                    txt_filename = f'({step})_Valid-{random_uniqe_code}.txt',
-                    text = number
-                )
-                
-                if response:
-                    process_result['success'] += 1
-                else:
-                    process_result['unsuccess'] += 1
-            
-            # ------------------------ #
-            
-            elif step == 'session_to_tdata':
-                response = session_to_tdata(
-                    session_path = f'sessions/{user_id}/{random_uniqe_code}/{number}.session',
-                    random_uniqe_code = random_uniqe_code
-                )
-            
-            elif step == 'tdata_to_session':
-                pass
-            
-            # ------------------------ #
-            
-            elif step == 'enable_2fa':
-                current_password = kwargs.get('current_password', 0)
-                new_password = kwargs.get('new_password', 0)
-                response = await telegram.enable_2fa(current_password = current_password, new_password = new_password)
-                
-                if response == 'success':
-                    make_zip_file(
-                        zip_filename = f'({step})_Valid-{random_uniqe_code}.zip',
-                        file_path = f'sessions/{user_id}/{random_uniqe_code}/{number}.session'
-                    )
-                else:
-                    make_zip_file(
-                        zip_filename = f'({step})_Invalid-{random_uniqe_code}.zip',
-                        file_path = f'sessions/{user_id}/{random_uniqe_code}/{number}.session'
-                    )
-                process_result[response] += 1
-            
-            elif step == 'disable_2fa':
-                current_password = kwargs.get('current_password', 0)
-                response = await telegram.disable_2fa(current_password = current_password)
-                
-                if response == 'success':
-                    make_zip_file(
-                        zip_filename = f'({step})_Valid-{random_uniqe_code}.zip',
-                        file_path = f'sessions/{user_id}/{random_uniqe_code}/{number}.session'
-                    )
-                else:
-                    make_zip_file(
-                        zip_filename = f'({step})_Invalid-{random_uniqe_code}.zip',
-                        file_path = f'sessions/{user_id}/{random_uniqe_code}/{number}.session'
-                    )
-                process_result[response] += 1
-            
-            elif step == 'reset_2fa':
-                response = await telegram.reset_2fa()
-                
-                if response == 'success':
-                    make_zip_file(
-                        zip_filename = f'({step})_Valid-{random_uniqe_code}.zip',
-                        file_path = f'sessions/{user_id}/{random_uniqe_code}/{number}.session'
-                    )
-                else:
-                    make_zip_file(
-                        zip_filename = f'({step})_Invalid-{random_uniqe_code}.zip',
-                        file_path = f'sessions/{user_id}/{random_uniqe_code}/{number}.session'
-                    )
-                process_result[response] += 1
-        
-        
-        if step == 'session_to_tdata':
-            make_zip_file(
-                zip_filename = f'({step})_Valid-{random_uniqe_code}.zip',
-                folder_name = f'tdata-{random_uniqe_code}'
+        if step in steps_with_telegram:
+            telegram = Telegram(
+                session_folder   = session_path,
+                phone_number     = number,
+                api_hash         = json_data.get('app_hash', json_data.get('api_hash', 'b18441a1ff607e10a989891a5462e627')),
+                api_id           = json_data.get('app_id', json_data.get('api_id', 2040)),
+                app_version      = json_data.get('app_version', '5.1.7 x64'),
+                system_version   = json_data.get('sdk_version', json_data.get('system_version', json_data.get('sdk', 'Unknown'))),
+                device_model     = json_data.get('device_model', 'samsungSM-A025AZ'),
+                lang_code        = json_data.get('lang_code', 'en'),
+                system_lang_code = json_data.get('system_lang_code', 'en-us'),
+                lang_pack        = json_data.get('lang_pack', 'tdesktop')
             )
         
-        shutil.rmtree(path = f'sessions/{user_id}/{random_uniqe_code}')
-        files = [
-            f'({step})_Valid-{random_uniqe_code}.txt',
-            f'({step})_Valid-{random_uniqe_code}.zip',
-            f'({step})_Invalid-{random_uniqe_code}.zip'
-        ]
-        for file in files:
-            if os.path.exists(file):
-                await bot.send_file(entity = user_id, file = file, buttons = start_key())
-                os.unlink(file)
+        async def handle_response(response):
+            zip_name = 'Valid' if response == 'success' else 'Invalid'
+            make_zip_file(zip_filename=f'({step})_{zip_name}-{random_uniqe_code}.zip', file_path=f'{session_path}/{number}.session')
+            process_result[response] += 1
         
+        # ------------------------ #
         
-        return True, process_result
-    else:
-        await bot.send_message(
-            entity = user_id,
-            message = '<b>⚠️ Folder is empty, try again later!</b>',
-            buttons = start_key()
-        )
+        if step == 'check_session':
+            response = await telegram.is_banned()
+            await handle_response(response=response)
+        
+        elif step == 'check_tdata':
+            tdesk = TDesktop(Path(account) / 'tdata')
+            print(tdesk.isLoaded())
+            process_result['success'] += 1
+        
+        # ------------------------ #
+        
+        elif step == 'session_to_json':
+            json_data = generate_random_json(number = number, platform = 'desktop')
+            response = make_zip_file(
+                zip_filename = f'({step})_Valid-{random_uniqe_code}.zip',
+                file_path = f'sessions/{user_id}/{random_uniqe_code}/{number}.session',
+                include_json = False
+            )
+            response = make_zip_file(
+                zip_filename = f'({step})_Valid-{random_uniqe_code}.zip',
+                file_name = f'{number}.json',
+                file_content = json_data
+            )
+            
+            process_result['success' if response else 'unsuccess'] += 1
+        
+        elif step == 'session_to_txt':
+            response = make_txt_file(txt_filename=f'({step})_Valid-{random_uniqe_code}.txt', text=number)
+            process_result['success' if response else 'unsuccess'] += 1
+        
+        # ------------------------ #
+        
+        elif step == 'session_to_tdata':
+            process_result[await session_to_tdata(f'{session_path}/{number}.session', random_uniqe_code)] += 1
+        
+        elif step == 'tdata_to_session':
+            pass
+        
+        # ------------------------ #
+        
+        elif step == 'enable_2fa':
+            await handle_response(await telegram.enable_2fa(kwargs.get('current_password', 0), kwargs.get('new_password', 0)))
+        
+        elif step == 'disable_2fa':
+            await handle_response(await telegram.disable_2fa(kwargs.get('current_password', 0)))
+        
+        elif step == 'reset_2fa':
+            await handle_response(await telegram.reset_2fa())
+
+        # ------------------------ #
+        
+        elif step == 'update_profile_photo':
+            pass
+        
+        elif step == 'update_name':
+            await handle_response(await telegram.update_profile(first_name=get_random_profile(name=True)))
+        
+        elif step == 'update_lastname':
+            await handle_response(await telegram.update_profile(last_name=get_random_profile(lastname=True)))
+        
+        elif step == 'update_username':
+            await handle_response(await telegram.update_profile(user_name=get_random_profile(username=True)))
+        
+        elif step == 'update_bio':
+            await handle_response(await telegram.update_profile(about=get_random_profile(about=True)))
+    
+        # ------------------------ #
+        
+        elif step == 'delete_profile_photo':
+            await handle_response(await telegram.delete_profile(profile_photo=True))
+        
+        elif step == 'delete_username':
+            await handle_response(await telegram.delete_profile(user_name=True))
+        
+        elif step == 'delete_lastname':
+            await handle_response(await telegram.delete_profile(last_name=True))
+        
+        elif step == 'delete_bio':
+            await handle_response(await telegram.delete_profile(about=True))
+    
+        # ------------------------ #
+        
+        elif step == 'clear_all_data':
+            await handle_response(await telegram.clear_all_data())
+        
+        elif step == 'leave_all_channels':
+            await handle_response(await telegram.leave_all_channels())
+        
+        elif step == 'leave_all_groups':
+            await handle_response(await telegram.leave_all_groups())
+        
+        elif step == 'delete_all_chats':
+            await handle_response(await telegram.delete_all_chats())
+        
+        elif step == 'delete_all_contacts':
+            await handle_response(await telegram.delete_all_contacts())
+        
+        elif step == 'join_channel_or_group':
+            await handle_response(await telegram.join_chat(username=kwargs.get('chat_username', None)))
+        
+        elif step == 'leave_channel_or_group':
+            await handle_response(await telegram.left_chat(username=kwargs.get('chat_username', None)))
+        
+        # ------------------------ #
+    
+    if step == 'session_to_tdata':
+        make_zip_file(zip_filename=f'({step})_Valid-{random_uniqe_code}.zip', folder_name=f'tdata-{random_uniqe_code}')
+        shutil.rmtree(f'tdata-{random_uniqe_code}')
+    
+    shutil.rmtree(session_path)
+    for file in [f'({step})_Valid-{random_uniqe_code}.txt', f'({step})_Valid-{random_uniqe_code}.zip', f'({step})_Invalid-{random_uniqe_code}.zip']:
+        if os.path.exists(file):
+            await bot.send_file(entity = user_id, file = file, buttons = start_key())
+            os.unlink(file)
+    
+    return True, process_result
 
 def analysis_step(text: str) -> str:
     if text == 'Check session':
         return 'check_session'
     elif text == 'Check T-data':
         return 'check_tdata'
+    
     elif text == 'Session to json':
         return 'session_to_json'
     elif text == 'Session to txt':
         return 'session_to_txt'
     elif text == 'Session to string':
         return 'session_to_string'
+    
     elif text == 'T-data to session':
         return 'tdata_to_session'
     elif text == 'Session to T-data':
         return 'session_to_tdata'
+    
     elif text == 'Enable 2FA':
         return 'enable_2fa'
     elif text == 'Reset 2FA':
         return 'reset_2fa'
     elif text == 'Disable 2FA':
         return 'disable_2fa'
+    
+    elif text == 'Update Profile Photo':
+        return 'update_profile_photo'
+    elif text == 'Update Name':
+        return 'update_name'
+    elif text == 'Update LastName':
+        return 'update_lastname'
+    elif text == 'Update UserName':
+        return 'update_username'
+    elif text == 'Update Bio':
+        return 'update_bio'
+    
+    elif text == 'Delete Profile Photo':
+        return 'delete_profile_photo'
+    elif text == 'Delete UserName':
+        return 'delete_username'
+    elif text == 'Delete LastName':
+        return 'delete_lastname'
+    elif text == 'Delete Bio':
+        return 'delete_bio'
+    
+    elif text == 'Clear All Data':
+        return 'clear_all_data'
+    elif text == 'Leave All Channels':
+        return 'leave_all_channels'
+    elif text == 'Leave All Groups':
+        return 'leave_all_groups'
+    elif text == 'Delete All Chats':
+        return 'delete_all_chats'
+    elif text == 'Delete All Contacts':
+        return 'delete_all_contacts'
+    elif text == 'Join Channel/Group':
+        return 'join_channel_or_group'
+    elif text == 'Leave Channel/Group':
+        return 'leave_channel_or_group'
+    
     else:
         return 'none'
 
@@ -6184,13 +6332,35 @@ def check_step(step: str) -> bool:
     steps = [
         'check_session',
         'check_tdata',
+        
         'session_to_json',
         'session_to_txt',
         'session_to_string',
+        
         'tdata_to_session',
         'session_to_tdata',
+        
         # 'enable_2fa',
         'reset_2fa',
-        # 'disable_2fa'
+        # 'disable_2fa',
+        
+        'update_profile_photo',
+        'update_name',
+        'update_lastname',
+        'update_username',
+        'update_bio',
+        
+        'delete_profile_photo',
+        'delete_username',
+        'delete_lastname',
+        'delete_bio',
+        
+        'clear_all_data',
+        'leave_all_channels',
+        'leave_all_groups',
+        'delete_all_chats',
+        'delete_all_contacts',
+        # 'join_channel_or_group',
+        # 'leave_channel_or_group',
     ]
     return True if step in steps else False

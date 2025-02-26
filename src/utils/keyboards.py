@@ -21,6 +21,8 @@ def functions_key() -> list:
         [Button.text('Leave All Channels'), Button.text('Leave All Groups')],
         [Button.text('Delete All Chats'), Button.text('Delete All Contacts')],
         [Button.text('Join Channel/Group'), Button.text('Leave Channel/Group')],
+        [Button.text('Start bot (off)'), Button.text('Start web-app (off)')],
+        [Button.text('Send message (off)')],
         [Button.text('🔙 back')]
     ]
 
@@ -28,9 +30,11 @@ def profile_key() ->list:
     return [
         [Button.text('Update Profile Photo (off)', resize = True)],
         [Button.text('Update Name'), Button.text('Update LastName')],
-        [Button.text('Update UserName')],
+        [Button.text('Update UserName'), Button.text('Update Bio')],
+        [Button.text('--------------------')],
         [Button.text('Delete Profile Photo (off)')],
-        [Button.text('Delete UserName'), Button.text('Delete Bio')],
+        [Button.text('Delete UserName'), Button.text('Delete LastName')],
+        [Button.text('Delete Bio')],
         [Button.text('🔙 back')]
     ]
 

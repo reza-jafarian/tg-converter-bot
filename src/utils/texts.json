@@ -27,6 +27,10 @@
         "en": "<b>🔑 Send your current password:</b>"
     },
 
+    "send_chat_username": {
+        "en": "<b>⏬ Send your channel / group username with '@':</b>"
+    },
+
     "send_new_password": {
         "en": "<b>🔑 Send your new password:</b>"
     },

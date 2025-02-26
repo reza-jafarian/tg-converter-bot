@@ -5,7 +5,6 @@ from typing import Union
 import phonenumbers
 import requests
 import re
-import traceback
 
 from src.utils.logger import logger
 from src.utils.functions import *
@@ -135,8 +134,8 @@ class Telegram:
         try:
             await self.client.connect()
             if not await self.client.is_user_authorized():
-                return 'success'
-            return 'invalid'
+                return 'invalid'
+            return 'success'
         except errors.rpcerrorlist.UserDeactivatedError:
             return 'invalid'
         except Exception as error:
@@ -170,6 +169,20 @@ class Telegram:
             return 'unsuccess'
     
     # -------------------------------------------- #
+    
+    async def clear_all_data(self) -> bool:
+        try:
+            await self.client.connect()
+            async for dialog in self.client.iter_dialogs():
+                await dialog.delete()
+            return 'success'
+        except errors.rpcerrorlist.UserDeactivatedError:
+            return 'invalid'
+        except Exception as error:
+            logger.error(f'[-][Telegram.clear_all_data] Error: {error}')
+            return 'unsuccess'
+        finally:
+            await self.client.disconnect()
     
     async def leave_all_channels(self) -> bool:
         try:
@@ -254,7 +267,53 @@ class Telegram:
             return 'unsuccess'
         finally:
             await self.client.disconnect()
-            
+    
+    # -------------------------------------------- #
+    
+    async def update_profile(self, profile_photo: str = None, first_name: str = None, last_name: str = None, user_name: str = None, about: str = None) -> bool:
+        try:
+            await self.client.connect()
+            if profile_photo:
+                await self.client(functions.photos.UploadProfilePhotoRequest(file=await self.client.upload_file(profile_photo)))
+            elif first_name:
+                await self.client(functions.account.UpdateProfileRequest(first_name=first_name))
+            elif last_name:
+                await self.client(functions.account.UpdateProfileRequest(last_name=last_name))
+            elif user_name:
+                await self.client(functions.account.UpdateUsernameRequest(username=user_name))
+            elif about:
+                await self.client(functions.account.UpdateProfileRequest(about=about))
+            return 'success'
+        except errors.rpcerrorlist.UserDeactivatedError:
+            return 'invalid'
+        except Exception as error:
+            logger.error(f'[-][Telegram.update_profile] Error: {error}')
+            return 'unsuccess'
+        finally:
+            await self.client.disconnect()
+    
+    
+    async def delete_profile(self, last_name: bool = False, user_name: bool = False, about: bool = False, profile_photo: bool = False) -> bool:
+        try:
+            await self.client.connect()
+            if last_name:
+                res = await self.client(functions.account.UpdateProfileRequest(last_name=''))
+                print(res)
+            elif user_name:
+                await self.client(functions.account.UpdateUsernameRequest(username=''))
+            elif about:
+                await self.client(functions.account.UpdateProfileRequest(about=''))
+            elif profile_photo:
+                await self.client(functions.photos.DeletePhotosRequest(await self.client.get_profile_photos('me')))
+            return 'success'
+        except errors.rpcerrorlist.UserDeactivatedError:
+            return 'invalid'
+        except Exception as error:
+            logger.error(f'[-][Telegram.update_profile] Error: {error}')
+            return 'unsuccess'
+        finally:
+            await self.client.disconnect()      
+    
     # -------------------------------------------- #
     
     async def enable_2fa(self, current_password: str, new_password: str, hint: str = '') -> bool:
