@@ -1,6 +1,6 @@
-from datetime import datetime
+from dateutil.relativedelta import relativedelta
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Union
 from faker import Faker
 import zipfile
 import random
@@ -9,6 +9,7 @@ import shutil
 import json
 import glob
 import os
+import re
 
 from opentele.api import API, UseCurrentSession, CreateNewSession
 from opentele.tl import TelegramClient
@@ -6300,3 +6301,38 @@ def check_step(step: str) -> bool:
         # 'leave_channel_or_group',
     ]
     return True if step in steps else False
+
+def add_time_to_now(time_str: str) -> str:
+    now = datetime.now()
+    time_units = {
+        "second": "seconds",
+        "seconds": "seconds",
+        "minute": "minutes",
+        "minutes": "minutes",
+        "hour": "hours",
+        "hours": "hours",
+        "day": "days",
+        "days": "days",
+        "week": "weeks",
+        "weeks": "weeks",
+        "month": "months",
+        "months": "months",
+        "year": "years",
+        "years": "years",
+    }
+    
+    matches = re.findall(r"(\d+)\s*(\w+)", time_str)
+    
+    delta = timedelta()
+    rdelta = relativedelta()
+
+    for amount, unit in matches:
+        amount = int(amount)
+        unit = unit.lower()
+        
+        if unit in ['month', 'months', 'year', 'years']:
+            rdelta += relativedelta(**{time_units[unit]: amount})
+        elif unit in time_units:
+            delta += timedelta(**{time_units[unit]: amount})
+
+    return now + delta + rdelta

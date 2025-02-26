@@ -12,7 +12,6 @@ except ImportError:
         print('could not load the plugins module', file=sys.stderr)
         exit(1)
 
-
 async def main():
     bot = await getClient()
     await startClient()
