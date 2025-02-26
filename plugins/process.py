@@ -22,16 +22,18 @@ async def init(bot):
                 file_name = event.message.media.document.attributes[0].file_name
                 await event.download_media(file_name)
                 
-                if user_data.step not in ['check_tdata', 'tdata_to_session']:
-                    extract_sessions_zip_file(zip_path = file_name, dest_folder = f'sessions/{user.id}/{random_uniqe_code}')
-                else:
+                if user_data.step in ['check_tdata', 'tdata_to_session']:
                     extract_tdata_zip_file(zip_path = file_name, dest_folder = f'sessions/{user.id}/{random_uniqe_code}')
+                else:
+                    extract_sessions_zip_file(zip_path = file_name, dest_folder = f'sessions/{user.id}/{random_uniqe_code}')
                 
                 response = await process_method(user_id = user.id, random_uniqe_code = random_uniqe_code, step = user_data.step)
                 
                 if response[0]:
                     User.update(step='none').where(User.user_id == user.id).execute()
+                    
                     await wait.delete()
+                    await bot.send_message(user.id, TEXTS['help'][user_data.language])
                     await event.reply(str(TEXTS['done'][user_data.language]).format(
                             response[1].get('count', 0),
                             response[1].get('success', 0),
@@ -96,7 +98,9 @@ async def init(bot):
                 
             if response[0]:
                 User.update(step='none').where(User.user_id == user.id).execute()
+                
                 await wait.delete()
+                await bot.send_message(user.id, TEXTS['help'][user_data.language])
                 await event.reply(str(TEXTS['done'][user_data.language]).format(
                         response[1].get('count', 0),
                         response[1].get('success', 0),
@@ -135,7 +139,9 @@ async def init(bot):
                     
                 if response[0]:
                     User.update(step='none').where(User.user_id == user.id).execute()
+                    
                     await wait.delete()
+                    await bot.send_message(user.id, TEXTS['help'][user_data.language])
                     await event.reply(str(TEXTS['done'][user_data.language]).format(
                             response[1].get('count', 0),
                             response[1].get('success', 0),
@@ -165,7 +171,9 @@ async def init(bot):
                 
             if response[0]:
                 User.update(step='none').where(User.user_id == user.id).execute()
+                
                 await wait.delete()
+                await bot.send_message(user.id, TEXTS['help'][user_data.language])
                 await event.reply(str(TEXTS['done'][user_data.language]).format(
                         response[1].get('count', 0),
                         response[1].get('success', 0),

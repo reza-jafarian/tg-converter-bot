@@ -35,6 +35,10 @@
         "en": "<b>🔑 Send your new password:</b>"
     },
 
+    "help": {
+        "en": "<b>🔢 - Count of all sessions in zip file\n🟢 - Mission completed, or account healthy.\n🟡 - Mission failed, or account restricted.\n❌ - Account invalid, multiple IP logins, file damaged, or banned.\n☑️ - Failed to connect to the server, please recheck the error file.</b>"
+    },
+
     "done": {
         "en": "<b>✅ Statistic of process:\n\n🔢 Count all: {}\n🟢 Success: {}\n🟡 Unsuccess: {}\n❌ Invalid: {}\n☑️ Failed: {}</b>"
     },
