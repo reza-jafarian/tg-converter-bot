@@ -1,3 +1,4 @@
 .env
 *.session
 *.db
+venv
