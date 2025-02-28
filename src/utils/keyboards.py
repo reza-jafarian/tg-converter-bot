@@ -45,6 +45,29 @@ def profile_key() ->list:
         [Button.text('🔙 back')]
     ]
 
+def update_settings_key() -> list:
+    return [
+        [Button.inline('🔄 Update status', data='update_settings')],
+    ]
+
+def change_settings_key() -> list:
+    return [
+        [Button.inline('🔄 Update status', data='update_settings')],
+        [Button.inline('Change api-id', data='change-app_id'), Button.inline('Change api-hash', data='change-app_hash')],
+        [Button.inline('Change device-model', data='change-device_model'), Button.inline('Change app-version', data='change-app_version')],
+        [Button.inline('Change sdk-version', data='change-sdk_version'), Button.inline('Change platform', data='change-platform')],
+        [Button.inline('Change first-name', data='change-first_name'), Button.inline('Change last-name', data='change-last_name')],
+        [Button.inline('Change username', data='change-username'), Button.inline('Change twoFA password', data='change-twoFA')],
+        [Button.inline('Change system-lang-code', data='change-system_lang_code'), Button.inline('Change lang-code', data='change-lang_code')],
+        [Button.inline('Change lang-pack', data='change-lang_pack')],
+        [Button.inline('🔢 Set batch size', data='change-batch_size')],
+    ]
+
+def back_to_json_settings_key() -> list:
+    return [
+        [Button.inline('🔙 back', data='back_to_json_settings')]
+    ]
+
 def back_key() -> list:
     return [
         [Button.text('🔙 back', resize = True)]

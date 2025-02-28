@@ -5,9 +5,19 @@ from typing import Union
 import phonenumbers
 import requests
 import re
+import logging
 
 from src.utils.logger import logger
 from src.utils.functions import *
+
+# logging.basicConfig(
+#     level=logging.DEBUG, 
+#     format="%(asctime)s - %(levelname)s - %(message)s",
+#     handlers=[
+#         logging.FileHandler("telethon_debug.log"),
+#         logging.StreamHandler()
+#     ]
+# )
 
 class Telegram:
     def __init__(
@@ -25,22 +35,10 @@ class Telegram:
         lang_pack: str = '',
         proxy: dict = None
     ) -> None:
-        self.phone_number = phone_number
+        
+        self.phone_number = phone_number if phone_number.startswith('+') else '+' + str(phone_number)
         self.session_folder = session_folder
         self.session_name = session_name
-        
-        self.SUPPORTED_MODES = {
-            "google": {
-                "installer": "com.android.vending",
-                "package_id": "org.telegram.messenger"
-            },
-            "standalone": {
-                "installer": "com.android.packageinstaller",
-                "package_id": "org.telegram.messenger.web"
-            }
-        }
-        
-        self.push_token = 'dct1tlUOQZuy0etJnolkEU:APA91bFIeDdCY88IhdtZIHFvre6ykucov4MYwvmVgMpn0YDdC4DlWUbziSCHIeZOasZ29mYvEDpMG0VUY7BZES_mrvKQnMujEhT_bOSvZMMLR9RgLtSqLfI'
         
         if lang_pack == 'tdesktop':
             params = types.JsonObject([
@@ -50,15 +48,17 @@ class Telegram:
             ])
         elif lang_pack == 'android':
             params = types.JsonObject([
-                types.JsonObjectValue('device_token', types.JsonString(self.push_token)),
+                types.JsonObjectValue('device_token', types.JsonString('dct1tlUOQZuy0etJnolkEU:APA91bFIeDdCY88IhdtZIHFvre6ykucov4MYwvmVgMpn0YDdC4DlWUbziSCHIeZOasZ29mYvEDpMG0VUY7BZES_mrvKQnMujEhT_bOSvZMMLR9RgLtSqLfI')),
                 types.JsonObjectValue('data', types.JsonString("49C1522548EBACD46CE322B6FD47F6092BB745D0F88082145CAF35E14DCC38E1")),
-                types.JsonObjectValue('installer', types.JsonString(self._installer('google'))),
-                types.JsonObjectValue('package_id', types.JsonString(self._package_id('google'))),
+                types.JsonObjectValue('installer', types.JsonString('com.android.vending')),
+                types.JsonObjectValue('package_id', types.JsonString('org.telegram.messenger')),
                 types.JsonObjectValue('tz_offset', types.JsonNumber(
                     self.convert_timezone(timezone=self.get_timezone(phone_number=self.phone_number))
                 )),
                 types.JsonObjectValue('perf_cat', types.JsonNumber(2)),
             ])
+        elif lang_pack == '' or lang_pack or None:
+            params = None
         
         self.client = TelegramClient(
             session=f'{self.session_folder}/{self.phone_number if session_name is None else self.session_name}',
@@ -78,6 +78,11 @@ class Telegram:
     
     def get_country_name(self, phone_number: str) -> Union[str, bool]:
         try:
+            if phone_number.startswith('+95'):
+                return 'Myanmar'
+            elif phone_number.startswith('+62'):
+                return 'Indonesia'
+            
             parsed_number = phonenumbers.parse(phone_number, None)
             return geocoder.description_for_number(parsed_number, 'en')
         except Exception as error:
@@ -103,18 +108,6 @@ class Telegram:
             hours, _, minutes = timezone.lstrip('+-').partition(':')
             return sign * (int(hours) * 3600 + int(minutes or 0) * 60)
         return 0
-    
-    # -------------------------------------------- #
-    
-    def _package_id(self, mode):
-        if mode not in self.SUPPORTED_MODES or 'package_id' not in self.SUPPORTED_MODES[mode]:
-            raise RuntimeError(f"Invalid mode '{mode}'")
-        return self.SUPPORTED_MODES[mode]['package_id']
-
-    def _installer(self, mode: str):
-        if mode not in self.SUPPORTED_MODES or 'installer' not in self.SUPPORTED_MODES[mode]:
-            raise RuntimeError(f"Invalid mode '{mode}'")
-        return self.SUPPORTED_MODES[mode]['installer']
     
     # -------------------------------------------- #
     

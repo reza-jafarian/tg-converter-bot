@@ -23,6 +23,10 @@
         "en": "<b>⚠️ Your sent zip file is invalid!</b>"
     },
 
+    "set_settings": {
+        "en": "<b>🔽 Here you can set your json settings:</b>"
+    },
+
     "send_current_password": {
         "en": "<b>🔑 Send your current password:</b>"
     },
