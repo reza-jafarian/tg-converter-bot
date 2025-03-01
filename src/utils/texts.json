@@ -11,6 +11,10 @@
         "en": "<b>⬇️ Choose one of the options below:</b>"
     },
 
+    "extracting": {
+        "en": "<b>🔄 Please wait, extracting ...</b>"
+    },
+
     "wait": {
         "en": "<b>🔄 Please wait, processing ...</b>"
     },

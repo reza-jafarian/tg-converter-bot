@@ -1,5 +1,6 @@
 from telethon import Button
 
+from src.database.models import redis_db
 from src.config.config import SETTINGS
 
 def support() -> list:
@@ -60,7 +61,7 @@ def change_settings_key() -> list:
         [Button.inline('Change username', data='change-username'), Button.inline('Change twoFA password', data='change-twoFA')],
         [Button.inline('Change system-lang-code', data='change-system_lang_code'), Button.inline('Change lang-code', data='change-lang_code')],
         [Button.inline('Change lang-pack', data='change-lang_pack')],
-        [Button.inline('🔢 Set batch size', data='change-batch_size')],
+        [Button.inline(f'🔢 Set batch size (Current-value: {redis_db.get("batch_size").decode("utf-8")})', data='change-batch_size')],
     ]
 
 def back_to_json_settings_key() -> list:

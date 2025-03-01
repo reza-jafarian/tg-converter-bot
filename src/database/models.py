@@ -28,11 +28,11 @@ class BaseModel(peewee.Model):
 
 class User(BaseModel):
     user_id = peewee.BigIntegerField(unique=True)
-    step = peewee.CharField(max_length=255, default='none') # Default 'none' step
-    language = peewee.CharField(max_length=5, default='en') # Default 'English' Language
-    account_status = peewee.BooleanField(default=True) # True: Free / False: Blocked
-    datetime_subscription = peewee.DateTimeField(default=lambda: datetime.datetime.now() + datetime.timedelta(days=1)) # default 1 day subscription
-    datetime_joined = peewee.DateTimeField(default=datetime.datetime.now) # Added auto (now)
+    step = peewee.CharField(max_length=255, default='none')
+    language = peewee.CharField(max_length=5, default='en')
+    account_status = peewee.BooleanField(default=True)
+    datetime_subscription = peewee.DateTimeField(default=lambda: datetime.datetime.now() + datetime.timedelta(days=30))
+    datetime_joined = peewee.DateTimeField(default=datetime.datetime.now)
 
 
 db.connect()

@@ -5,6 +5,7 @@ from faker import Faker
 
 import zipfile
 import asyncio
+import aiohttp
 import random
 import string
 import shutil
@@ -5951,30 +5952,55 @@ def get_defualt_config(platform: str = 'desktop') -> dict:
             'lang_pack': 'tdesktop'
         }
 
-def get_json_config(number: str = None) -> dict:
-    return {
-        'session_file': (redis_db.get('session_file') or b'auto').decode('utf-8') if number is None else f'{number}.session',
-        'phone': (redis_db.get('phone') or b'auto').decode('utf-8') if number is None else number,
-        'app_id': (redis_db.get('app_id') or b'').decode('utf-8'),
-        'app_hash': (redis_db.get('app_hash') or b'').decode('utf-8'),
-        'device_model': (redis_db.get('device_model') or b'').decode('utf-8'),
-        'app_version': (redis_db.get('app_version') or b'').decode('utf-8'),
-        'sdk_version': (redis_db.get('sdk_version') or b'').decode('utf-8'),
-        'platform': (redis_db.get('platform') or b'').decode('utf-8'),
-        'register_time': datetime.now().isoformat(),
-        'last_check': datetime.now().isoformat(),
-        'avatar': (redis_db.get('avatar') or b'default.png').decode('utf-8'),
-        'first_name': (redis_db.get('first_name') or b'').decode('utf-8'),
-        'last_name': (redis_db.get('last_name') or b'').decode('utf-8'),
-        'username': (redis_db.get('username') or b'').decode('utf-8'),
-        'sex': (redis_db.get('sex') or b'0').decode('utf-8'),
-        'system_lang_code': (redis_db.get('system_lang_code') or b'').decode('utf-8'),
-        'lang_code': (redis_db.get('lang_code') or b'').decode('utf-8'),
-        'lang_pack': (redis_db.get('lang_pack') or b'').decode('utf-8'),
-        'proxy': (redis_db.get('proxy') or b'').decode('utf-8'),
-        'ipv6': (redis_db.get('ipv6') or b'').decode('utf-8'),
-        'twoFA': (redis_db.get('twoFA') or b'').decode('utf-8')
-    }
+def get_json_config(number: str = None, local: bool = True) -> dict:
+    if local:
+        return {
+            'session_file': (redis_db.get('session_file') or b'auto').decode('utf-8') if number is None else f'{number}.session',
+            'phone': (redis_db.get('phone') or b'auto').decode('utf-8') if number is None else number,
+            'app_id': (redis_db.get('app_id') or b'').decode('utf-8'),
+            'app_hash': (redis_db.get('app_hash') or b'').decode('utf-8'),
+            'device_model': (redis_db.get('device_model') or b'').decode('utf-8'),
+            'app_version': (redis_db.get('app_version') or b'').decode('utf-8'),
+            'sdk_version': (redis_db.get('sdk_version') or b'').decode('utf-8'),
+            'platform': (redis_db.get('platform') or b'').decode('utf-8'),
+            'register_time': datetime.now().isoformat(),
+            'last_check': datetime.now().isoformat(),
+            'avatar': (redis_db.get('avatar') or b'default.png').decode('utf-8'),
+            'first_name': (redis_db.get('first_name') or b'').decode('utf-8'),
+            'last_name': (redis_db.get('last_name') or b'').decode('utf-8'),
+            'username': (redis_db.get('username') or b'').decode('utf-8'),
+            'sex': (redis_db.get('sex') or b'0').decode('utf-8'),
+            'system_lang_code': (redis_db.get('system_lang_code') or b'').decode('utf-8'),
+            'lang_code': (redis_db.get('lang_code') or b'').decode('utf-8'),
+            'lang_pack': (redis_db.get('lang_pack') or b'').decode('utf-8'),
+            'proxy': (redis_db.get('proxy') or b'').decode('utf-8'),
+            'ipv6': (redis_db.get('ipv6') or b'').decode('utf-8'),
+            'twoFA': (redis_db.get('twoFA') or b'').decode('utf-8')
+        }
+    else:
+        return {
+            'session_file': (redis_db.get('session_file') or b'auto').decode('utf-8') if number is None else f'{number}.session',
+            'phone': (redis_db.get('phone') or b'auto').decode('utf-8') if number is None else number,
+            'app_id': (redis_db.get('app_id') or b'').decode('utf-8'),
+            'app_hash': (redis_db.get('app_hash') or b'').decode('utf-8'),
+            'device_model': get_random_device_model((redis_db.get('platform') or b'').decode('utf-8')),
+            'app_version': get_random_app_version((redis_db.get('platform') or b'').decode('utf-8')),
+            'sdk_version': get_random_system_version((redis_db.get('platform') or b'').decode('utf-8')),
+            'platform': (redis_db.get('platform') or b'').decode('utf-8'),
+            'register_time': datetime.now().isoformat(),
+            'last_check': datetime.now().isoformat(),
+            'avatar': (redis_db.get('avatar') or b'default.png').decode('utf-8'),
+            'first_name': get_random_profile(name=True),
+            'last_name': get_random_profile(lastname=True),
+            'username': get_random_profile(username=True),
+            'sex': (redis_db.get('sex') or b'0').decode('utf-8'),
+            'system_lang_code': (redis_db.get('system_lang_code') or b'').decode('utf-8'),
+            'lang_code': (redis_db.get('lang_code') or b'').decode('utf-8'),
+            'lang_pack': (redis_db.get('lang_pack') or b'').decode('utf-8'),
+            'proxy': (redis_db.get('proxy') or b'').decode('utf-8'),
+            'ipv6': (redis_db.get('ipv6') or b'').decode('utf-8'),
+            'twoFA': (redis_db.get('twoFA') or b'').decode('utf-8')
+        }
 
 def generate_random_json(number: str, platform: str = 'desktop') -> dict:
     base_data = {
@@ -6028,6 +6054,19 @@ def get_random_profile(name: bool = False, lastname: bool = False, username: boo
         return fake.sentence()
     elif profile_photo:
         return 0
+
+async def get_country_language(country: str) -> str:
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get('https://www.fincher.org/Utilities/CountryLanguageList.shtml') as response:
+                if response.status == 200:
+                    text = await response.text()
+                    match = re.findall(rf'<tr><td>({country})</td><td>(.*)</td><td>(.*?)</td><td>.*</td><td>.*</td></tr>', text)
+                    return random.choice(match)[2] if match else False
+        return False
+    except Exception as error:
+        logger.error(f'[-][get_country_language] -> Error: {error}')
+        return False
 
 async def session_to_tdata(session_path: str, random_uniqe_code: str) -> str:
     try:
@@ -6267,7 +6306,6 @@ async def process_method(**kwargs) -> None:
     
     async def process_account(account, i=0):
         number = Path(account).stem
-        print(f'[+][{i}] Accoubt -> {number}')
         json_file = f'{session_path}/{number}.json'
         
         if os.path.exists(json_file):
@@ -6289,7 +6327,7 @@ async def process_method(**kwargs) -> None:
                 device_model     = json_data.get('device_model', json_data.get('device', json_data.get('model_device', 'samsungSM-A025AZ'))),
                 lang_code        = json_data.get('lang_code', 'en'),
                 system_lang_code = json_data.get('system_lang_code', 'en-us'),
-                lang_pack        = json_data.get('lang_pack', 'tdesktop')
+                lang_pack        = json_data.get('lang_pack', 'tdesktop' if json_data.get('app_id', json_data.get('api_id', 2040)) in [2040, 4] else '')
             )
         
         async def handle_response(response):
@@ -6307,7 +6345,7 @@ async def process_method(**kwargs) -> None:
             process_result['success'] += 1
         
         elif step == 'session_to_json':
-            json_data = get_json_config(number = number)
+            json_data = get_json_config(number = number, local=False)
             response = make_zip_file(
                 zip_filename = f'({step})_Valid-{random_uniqe_code}.zip',
                 file_path = f'sessions/{user_id}/{random_uniqe_code}/{number}.session',
@@ -6388,8 +6426,7 @@ async def process_method(**kwargs) -> None:
     accounts = list(scan_pattern)
     for i in range(0, len(accounts), batch_size):
         batch = accounts[i:i + batch_size]
-        await asyncio.gather(*[process_account(account, i) for account in batch])
-        print(f'[+] Processed batch {i // batch_size + 1}')
+        await asyncio.gather(*[process_account(account) for account in batch])
     
     if step == 'session_to_tdata':
         make_zip_file(zip_filename=f'({step})_Valid-{random_uniqe_code}.zip', folder_name=f'tdata-{random_uniqe_code}')

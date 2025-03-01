@@ -16,11 +16,13 @@ async def init(bot):
         if check_step(step = user_data.step):
             if event.message.media.document.mime_type == 'application/zip':
                 User.update(step='processing').where(User.user_id == user.id).execute()
-                wait = await event.reply(TEXTS['wait'][user_data.language], buttons = back_key())
+                wait = await event.reply(TEXTS['extracting'][user_data.language])
                 
                 random_uniqe_code = random.randint(111111, 999999)
                 file_name = event.message.media.document.attributes[0].file_name
                 await event.download_media(file_name)
+                
+                await wait.edit(TEXTS['wait'][user_data.language])
                 
                 if user_data.step in ['check_tdata', 'tdata_to_session']:
                     extract_tdata_zip_file(zip_path = file_name, dest_folder = f'sessions/{user.id}/{random_uniqe_code}')
@@ -56,12 +58,14 @@ async def init(bot):
         user_data, _ = User.get_or_create(user_id=user.id)
         
         if event.file and user_data.step in ['enable_2fa', 'disable_2fa']:
-            wait = await event.reply(TEXTS['wait'][user_data.language], buttons = back_key())
+            wait = await event.reply(TEXTS['extracting'][user_data.language])
                 
             random_uniqe_code = random.randint(111111, 999999)
             file_name = event.message.media.document.attributes[0].file_name
             await event.download_media(file_name)
             extract_sessions_zip_file(zip_path = file_name, dest_folder = f'sessions/{user.id}/{random_uniqe_code}')
+            
+            await wait.edit(TEXTS['wait'][user_data.language])
             
             User.update(step=f'send_current_password-{random_uniqe_code}-{user_data.step}').where(User.user_id == user.id).execute()
             
@@ -69,12 +73,14 @@ async def init(bot):
             await event.reply(str(TEXTS['send_current_password'][user_data.language]).format(event.raw_text), buttons = back_key())
         
         elif event.file and user_data.step in ['join_channel_or_group', 'leave_channel_or_group']:
-            wait = await event.reply(TEXTS['wait'][user_data.language], buttons = back_key())
+            wait = await event.reply(TEXTS['extracting'][user_data.language])
                 
             random_uniqe_code = random.randint(111111, 999999)
             file_name = event.message.media.document.attributes[0].file_name
             await event.download_media(file_name)
             extract_sessions_zip_file(zip_path = file_name, dest_folder = f'sessions/{user.id}/{random_uniqe_code}')
+            
+            await wait.edit(TEXTS['wait'][user_data.language])
             
             User.update(step=f'send_chat_username-{random_uniqe_code}-{user_data.step}').where(User.user_id == user.id).execute()
             
