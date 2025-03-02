@@ -7,7 +7,7 @@ from src.config.config import TEXTS
 
 async def init(bot):
     @bot.on(events.NewMessage(pattern='^(Check session|Check T-data|Session to json|Session to txt|Session to string|T-data to session|Session to T-data|Enable 2FA|Reset 2FA|Disable 2FA)$', func=lambda e: e.is_private))
-    @bot.on(events.NewMessage(pattern='^(Update Name|Update LastName|Update UserName|Update Bio|Delete UserName|Delete LastName|Delete Bio)$', func=lambda e: e.is_private))
+    @bot.on(events.NewMessage(pattern='^(Update Profile Photo|Update Name|Update LastName|Update UserName|Update Bio|Delete Profile Photo|Delete UserName|Delete LastName|Delete Bio)$', func=lambda e: e.is_private))
     @bot.on(events.NewMessage(pattern='^(Clear All Data|Leave All Channels|Leave All Groups|Delete All Chats|Delete All Contacts|Join Channel/Group|Leave Channel/Group)$', func=lambda e: e.is_private))
     async def send_zip_file(event):
         user = await event.get_sender()

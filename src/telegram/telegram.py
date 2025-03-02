@@ -28,7 +28,7 @@ class TelegramExceptionHandler:
         elif isinstance(error, (errors.rpcerrorlist.AuthKeyDuplicatedError, ConnectionError, ConnectionAbortedError, TimeoutError, asyncio.exceptions.TimeoutError)):
             return 'unsuccess'
         else:
-            logger.error(f'[-][{method_name}] Error: {error}')
+            # logger.error(f'[-][{method_name}] Error: {error}')
             return 'unsuccess'
 
 class Telegram:
@@ -48,6 +48,7 @@ class Telegram:
         proxy: dict = None
     ) -> None:
         
+        self.default_timeout = 15
         self.phone_number = phone_number if phone_number.startswith('+') else '+' + str(phone_number)
         self.session_folder = session_folder
         self.session_name = session_name
@@ -92,10 +93,16 @@ class Telegram:
     
     def get_country_name(self, phone_number: str) -> Union[str, bool]:
         try:
-            if phone_number.startswith('+95'):
+            phone_number = phone_number if phone_number.startswith('+') else '+' + phone_number
+            
+            if phone_number.startswith('+1'):
+                return 'Usa'
+            elif phone_number.startswith('+95'):
                 return 'Myanmar'
             elif phone_number.startswith('+62'):
                 return 'Indonesia'
+            elif phone_number.startswith('+63'):
+                return 'Philippines'
             elif phone_number.startswith('+212'):
                 return 'Morocco'
             
@@ -129,7 +136,7 @@ class Telegram:
     
     async def get_me(self) -> dict:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             return await self.client.get_me()
         except Exception as error:
             return TelegramExceptionHandler.handle_exception(error, 'is_banned')
@@ -138,8 +145,7 @@ class Telegram:
     
     async def is_banned(self) -> bool:
         try:
-            await self.client.connect()
-            # await asyncio.wait_for(self.client.connect(), timeout=20)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             if not await self.client.is_user_authorized():
                 return 'invalid'
             return 'success'
@@ -173,7 +179,7 @@ class Telegram:
     
     async def clear_all_data(self) -> bool:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             async for dialog in self.client.iter_dialogs():
                 await dialog.delete()
             return 'success'
@@ -184,9 +190,9 @@ class Telegram:
     
     async def leave_all_channels(self) -> bool:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             async for dialog in self.client.iter_dialogs():
-                if dialog.is_channel and not dialog.is_group:
+                if dialog.is_channel:
                     await dialog.delete()
             return 'success'
         except Exception as error:
@@ -196,9 +202,9 @@ class Telegram:
     
     async def leave_all_groups(self) -> bool:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             async for dialog in self.client.iter_dialogs():
-                if dialog.is_group and not dialog.is_channel:
+                if dialog.is_channel:
                     await dialog.delete()
             return 'success'
         except Exception as error:
@@ -208,7 +214,7 @@ class Telegram:
 
     async def delete_all_chats(self) -> bool:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             async for dialog in self.client.iter_dialogs():
                 await dialog.delete()
             return 'success'
@@ -219,7 +225,7 @@ class Telegram:
 
     async def delete_all_contacts(self) -> bool:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             contacts = await self.client(functions.contacts.GetContactsRequest(hash=0))
             await self.client(functions.contacts.DeleteContactsRequest(contacts.users))
             return 'success'
@@ -230,7 +236,7 @@ class Telegram:
 
     async def join_chat(self, username) -> bool:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             await self.client(functions.channels.JoinChannelRequest(channel=username))
             return 'success'
         except Exception as error:
@@ -240,7 +246,7 @@ class Telegram:
 
     async def left_chat(self, username) -> bool:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             await self.client(functions.channels.LeaveChannelRequest(channel=username))
             return 'success'
         except Exception as error:
@@ -252,7 +258,7 @@ class Telegram:
     
     async def update_profile(self, profile_photo: str = None, first_name: str = None, last_name: str = None, user_name: str = None, about: str = None) -> bool:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             if profile_photo:
                 await self.client(functions.photos.UploadProfilePhotoRequest(file=await self.client.upload_file(profile_photo)))
             elif first_name:
@@ -271,10 +277,9 @@ class Telegram:
     
     async def delete_profile(self, last_name: bool = False, user_name: bool = False, about: bool = False, profile_photo: bool = False) -> bool:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             if last_name:
-                res = await self.client(functions.account.UpdateProfileRequest(last_name=''))
-                print(res)
+                await self.client(functions.account.UpdateProfileRequest(last_name=''))
             elif user_name:
                 await self.client(functions.account.UpdateUsernameRequest(username=''))
             elif about:
@@ -291,7 +296,7 @@ class Telegram:
     
     async def enable_2fa(self, current_password: str, new_password: str, hint: str = '') -> bool:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             await self.client.edit_2fa(current_password=current_password, new_password=new_password, hint=hint)
             return 'success'
         except errors.rpcerrorlist.PasswordHashInvalidError:
@@ -303,8 +308,8 @@ class Telegram:
     
     async def disable_2fa(self, current_password: str) -> bool:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
-            await self.client.edit_2fa(current_password=current_password, new_password = None)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
+            await self.client.edit_2fa(current_password=current_password, new_password = '')
             return 'success'
         except errors.rpcerrorlist.PasswordHashInvalidError:
             return 'unsuccess'
@@ -315,7 +320,7 @@ class Telegram:
     
     async def reset_2fa(self) -> bool:
         try:
-            await asyncio.wait_for(self.client.connect(), timeout=10)
+            await asyncio.wait_for(self.client.connect(), timeout=self.default_timeout)
             await self.client(functions.account.ResetPasswordRequest())
             return 'success'
         except Exception as error:

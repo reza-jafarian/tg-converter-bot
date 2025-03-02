@@ -140,7 +140,7 @@ async def init(bot):
                     user_id = user.id,
                     random_uniqe_code = random_uniqe_code,
                     step = 'disable_2fa',
-                    current_password = redis_db.get(f'{user.id}-current_password').decode('utf-8')
+                    current_password = event.raw_text
                 )
                     
                 if response[0]:

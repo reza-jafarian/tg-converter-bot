@@ -40,7 +40,7 @@ def profile_key() ->list:
         [Button.text('Update Name'), Button.text('Update LastName')],
         [Button.text('Update UserName'), Button.text('Update Bio')],
         [Button.text('--------------------')],
-        [Button.text('Delete Profile Photo (off)')],
+        [Button.text('Delete Profile Photo')],
         [Button.text('Delete UserName'), Button.text('Delete LastName')],
         [Button.text('Delete Bio')],
         [Button.text('🔙 back')]
