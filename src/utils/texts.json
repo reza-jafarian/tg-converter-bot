@@ -15,8 +15,20 @@
         "en": "<b>🔄 Please wait, extracting ...</b>"
     },
 
+    "extracted": {
+        "en": "<b>✔️ You're sent file extracted successfully!</b>"
+    },
+
     "wait": {
-        "en": "<b>🔄 Please wait, processing ...</b>"
+        "en": "<b>🔄 Please wait, processing ({}/{}) ...</b>"
+    },
+
+    "wait_for_upload": {
+        "en": "<b>⏱️ Waiting for the completion of uploading all zip files ...</b>"
+    },
+
+    "send_want_count": {
+        "en": "<b>🔢 How many accounts in this folder do you want to extract (e.g: <code>100</code>) ?</b>"
     },
 
     "send_file": {

@@ -86,7 +86,8 @@ class Telegram:
             system_lang_code=system_lang_code,
             lang_pack=lang_pack,
             params=params,
-            proxy=proxy
+            receive_updates=False,
+            proxy=proxy,
         )
     
     # -------------------------------------------- #

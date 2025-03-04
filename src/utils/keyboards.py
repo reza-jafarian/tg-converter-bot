@@ -11,15 +11,17 @@ def support() -> list:
 def start_key() -> list:
     return [
         [Button.text('• Account / Profile Functions', resize = True)],
-        [Button.text('Check session'), Button.text('Check T-data')],
+        [Button.text('Check session'), Button.text('Check spam'), Button.text('Check T-data')],
         [Button.text('Session to json'), Button.text('Session to txt'), Button.text('Session to string')],
         [Button.text('T-data to session'), Button.text('Session to T-data')],
-        [Button.text('Enable 2FA'), Button.text('Reset 2FA'), Button.text('Disable 2FA')]
+        [Button.text('Enable 2FA'), Button.text('Reset 2FA'), Button.text('Disable 2FA')],
+        [Button.text('• Extract zip files (accounts)'), Button.text('• Mix zip files (accounts)')]
     ]
 
 def account_functions_key() -> list:
     return [
-        [Button.text('• Functions', resize = True), Button.text('• Profile')],
+        [Button.text('• Relogin tools (off)', resize = True)],
+        [Button.text('• Functions'), Button.text('• Profile')],
         [Button.text('🔙 back')]
     ]
 
@@ -44,6 +46,15 @@ def profile_key() ->list:
         [Button.text('Delete UserName'), Button.text('Delete LastName')],
         [Button.text('Delete Bio')],
         [Button.text('🔙 back')]
+    ]
+
+def finish_upload_key(finished: bool = False) -> list:
+    if finished:
+        return [
+            [Button.inline('✅ Finished', data='finished')]
+        ]
+    return [
+        [Button.inline('☑️ Finish upload', data='finish_upload')]
     ]
 
 def update_settings_key() -> list:

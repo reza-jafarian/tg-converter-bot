@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Union
 from faker import Faker
+import traceback
 
 from phonenumbers import geocoder
 import phonenumbers
@@ -18,7 +19,7 @@ import glob
 import os
 import re
 
-from opentele.api import API, UseCurrentSession, CreateNewSession
+from opentele.api import UseCurrentSession
 from opentele.tl import TelegramClient
 from opentele.td import TDesktop
 
@@ -26,6 +27,7 @@ from src.database.models import User, redis_db
 from src.telegram.telegram import Telegram
 from src.telegram.client import getClient
 from src.utils.keyboards import start_key
+from src.config.config import TEXTS
 from src.utils.logger import logger
 
 def extract_sessions_zip_file(zip_path: str, dest_folder: str) -> bool:
@@ -6082,16 +6084,34 @@ def get_country_name(phone_number: str) -> Union[str, bool]:
 
 async def get_country_language(country: str) -> str:
     try:
-        async with aiohttp.ClientSession() as session:
+        timeout = aiohttp.ClientTimeout(total=8)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        
+        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
             async with session.get('https://www.fincher.org/Utilities/CountryLanguageList.shtml') as response:
-                if response.status == 200:
-                    text = await response.text()
-                    match = re.findall(rf'<tr><td>({country})</td><td>(.*)</td><td>(.*?)</td><td>.*</td><td>.*</td></tr>', text)
-                    return random.choice(match)[2] if match else False
-        return False
+                if response.status != 200:
+                    logger.error(f"[-][get_country_language] -> Failed to fetch data, status code: {response.status}")
+                    return 'en-us'
+                
+                text = await response.text()
+                match = re.findall(
+                    rf'<tr><td>{re.escape(country)}</td><td>(.*?)</td><td>(.*?)</td><td>.*?</td><td>.*?</td></tr>', 
+                    text, re.IGNORECASE
+                )
+                
+                return random.choice(match)[1] if match else 'en-us'
+    
+    except asyncio.TimeoutError:
+        logger.error(f'[-][get_country_language] -> Request Timeout after 8 seconds.')
+    except aiohttp.ClientError as error:
+        logger.error(f'[-][get_country_language] -> Request error: {error}')
     except Exception as error:
-        logger.error(f'[-][get_country_language] -> Error: {error}')
-        return 'en-us'
+        logger.error(f'[-][get_country_language] -> Unexpected error: {error}')
+        # logger.error(traceback.format_exc())
+    
+    return 'en-us'
 
 async def session_to_tdata(session_path: str, random_uniqe_code: str) -> str:
     try:
@@ -6125,7 +6145,9 @@ async def tdata_to_session(path: str, number: str) -> str:
         return 'unsuccess'
 
 async def process_method(**kwargs) -> None:
+    wait = kwargs.get('wait', None)
     user_id = kwargs.get('user_id', 0)
+    user_data = User.select().where(User.user_id == user_id).get()
     random_uniqe_code = kwargs.get('random_uniqe_code', 0)
     step = kwargs.get('step', 'none')
     bot = await getClient()
@@ -6137,6 +6159,7 @@ async def process_method(**kwargs) -> None:
     
     process_result = {
         'count': len(glob.glob(f'{session_path}/')) if step in ['check_tdata', 'tdata_to_session'] else len(glob.glob(f'{session_path}/*.session')),
+        'done': 0,
         'success': 0,
         'unsuccess': 0,
         'invalid': 0,
@@ -6151,7 +6174,7 @@ async def process_method(**kwargs) -> None:
         'join_channel_or_group', 'leave_channel_or_group', 'session_to_string'
     }
     
-    async def process_account(account, i=0):
+    async def process_account(account):
         number = Path(account).stem
         json_file = f'{session_path}/{number}.json'
         
@@ -6185,8 +6208,9 @@ async def process_method(**kwargs) -> None:
             await handle_response(response=response)
         
         elif step == 'check_tdata':
-            tdesk = TDesktop(Path(account) / 'tdata')
-            print(tdesk.isLoaded())
+            process_result['success'] += 1
+        
+        elif step == 'check_spam':
             process_result['success'] += 1
         
         elif step == 'session_to_json':
@@ -6281,21 +6305,38 @@ async def process_method(**kwargs) -> None:
         elif step == 'leave_channel_or_group':
             await handle_response(await telegram.left_chat(username=kwargs.get('chat_username', None)))
     
+        elif step == 'mix_zip_files':
+            await handle_response('success')
+
+        process_result['done'] += 1
+        
+        if process_result['done'] % 10 == 0:
+            if wait is not None:
+                await wait.edit(str(TEXTS['wait'][user_data.language]).format(process_result['done'], process_result['count']))
+    
+    # ------------------------------------------ #
+    
     batch_size = int(redis_db.get('batch_size').decode('utf-8'))
     accounts = list(scan_pattern)
     for i in range(0, len(accounts), batch_size):
         batch = accounts[i:i + batch_size]
         await asyncio.gather(*[process_account(account) for account in batch])
     
+    # ------------------------------------------ #
+    
     if step == 'session_to_tdata':
         make_zip_file(zip_filename=f'({step})_Valid-{random_uniqe_code}.zip', folder_name=f'tdata-{random_uniqe_code}')
         shutil.rmtree(f'tdata-{random_uniqe_code}')
+    
+    # ------------------------------------------ #
     
     shutil.rmtree(session_path)
     for file in [f'({step})_Valid-{random_uniqe_code}.txt', f'({step})_Valid-{random_uniqe_code}.zip', f'({step})_Invalid-{random_uniqe_code}.zip']:
         if os.path.exists(file):
             await bot.send_file(entity = user_id, file = file, buttons = start_key())
             os.unlink(file)
+
+    # ------------------------------------------ #
     
     return True, process_result
 
@@ -6304,6 +6345,8 @@ def analysis_step(text: str) -> str:
         return 'check_session'
     elif text == 'Check T-data':
         return 'check_tdata'
+    elif text == 'Check spam':
+        return 'check_spam'
     
     elif text == 'Session to json':
         return 'session_to_json'
@@ -6359,6 +6402,11 @@ def analysis_step(text: str) -> str:
     elif text == 'Leave Channel/Group':
         return 'leave_channel_or_group'
     
+    elif text == '• Mix zip files (accounts)':
+        return 'mix_zip_files'
+    elif text == '• Extract zip files (accounts)':
+        return 'extract_zip_files'
+    
     else:
         return 'none'
 
@@ -6366,6 +6414,7 @@ def check_step(step: str) -> bool:
     steps = [
         'check_session',
         'check_tdata',
+        'check_spam',
         
         'session_to_json',
         'session_to_txt',
