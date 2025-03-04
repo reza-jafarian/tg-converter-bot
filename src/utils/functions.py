@@ -10,7 +10,7 @@ import phonenumbers
 
 import zipfile
 import asyncio
-import aiohttp
+import aiohttp # type: ignore
 import random
 import string
 import shutil
@@ -19,9 +19,9 @@ import glob
 import os
 import re
 
-from opentele.api import UseCurrentSession # type: ignore
-from opentele.tl import TelegramClient # type: ignore
-from opentele.td import TDesktop # type: ignore
+from opentele.api import UseCurrentSession
+from opentele.tl import TelegramClient
+from opentele.td import TDesktop
 
 from src.database.models import User, redis_db
 from src.telegram.telegram import Telegram
@@ -6082,6 +6082,16 @@ def get_country_name(phone_number: str) -> Union[str, bool]:
         logger.error(f'[-][get_country_name] -> Error: {error}')
         return False
 
+def get_country_flag(phone_number: str) -> str:
+    try:
+        phone_number = phone_number if phone_number.startswith('+') else '+' + phone_number
+        parsed_number = phonenumbers.parse(phone_number, None)
+        country_code = phonenumbers.region_code_for_number(parsed_number)
+        return ''.join(chr(ord(letter) % 32 + 0x1F1E5) for letter in country_code)
+    except Exception as e:
+        logger.error(f'[get_country_flag] -> Error: Phone number invalid.')
+        return False
+
 async def get_country_language(country: str) -> str:
     try:
         timeout = aiohttp.ClientTimeout(total=8)
@@ -6104,11 +6114,14 @@ async def get_country_language(country: str) -> str:
                 return random.choice(match)[1] if match else 'en-us'
     
     except asyncio.TimeoutError:
-        logger.error(f'[-][get_country_language] -> Request Timeout after 8 seconds.')
+        pass
+        # logger.error(f'[-][get_country_language] -> Request Timeout after 8 seconds.')
     except aiohttp.ClientError as error:
-        logger.error(f'[-][get_country_language] -> Request error: {error}')
+        pass
+        # logger.error(f'[-][get_country_language] -> Request error: {error}')
     except Exception as error:
-        logger.error(f'[-][get_country_language] -> Unexpected error: {error}')
+        pass
+        # logger.error(f'[-][get_country_language] -> Unexpected error: {error}')
         # logger.error(traceback.format_exc())
     
     return 'en-us'
@@ -6165,6 +6178,10 @@ async def process_method(**kwargs) -> None:
         'invalid': 0,
         'error': 0
     }
+    flags = set()
+    
+    if wait is not None:
+        await wait.edit(str(TEXTS['wait'][user_data.language]).format(process_result['done'], process_result['count']))
     
     scan_pattern = os.scandir(session_path) if step in ['check_tdata', 'tdata_to_session'] else glob.glob(f'{session_path}/*.session')
     steps_with_telegram = {
@@ -6309,19 +6326,38 @@ async def process_method(**kwargs) -> None:
             await handle_response('success')
 
         process_result['done'] += 1
+        flags.add(get_country_flag(phone_number=number))
         
-        if process_result['done'] % 10 == 0:
+        if process_result['done'] % 5 == 0:
             if wait is not None:
                 await wait.edit(str(TEXTS['wait'][user_data.language]).format(process_result['done'], process_result['count']))
     
     # ------------------------------------------ #
     
+    # batch_size = int(redis_db.get('batch_size').decode('utf-8'))
+    # accounts = list(scan_pattern)
+    # for i in range(0, len(accounts), batch_size):
+    #     batch = accounts[i:i + batch_size]
+    #     await asyncio.gather(*[process_account(account) for account in batch])
+
     batch_size = int(redis_db.get('batch_size').decode('utf-8'))
+    semaphore = asyncio.Semaphore(batch_size)
     accounts = list(scan_pattern)
+
+    async def safe_process_account(account):
+        async with semaphore:
+            try:
+                await process_account(account)
+            except Exception as error:
+                logger.error(f'[-][safe_process_account] Error: {error}')
+
+    tasks = []
     for i in range(0, len(accounts), batch_size):
         batch = accounts[i:i + batch_size]
-        await asyncio.gather(*[process_account(account) for account in batch])
-    
+        tasks.extend(asyncio.create_task(safe_process_account(account)) for account in batch)
+
+    await asyncio.gather(*tasks)
+
     # ------------------------------------------ #
     
     if step == 'session_to_tdata':
@@ -6333,7 +6369,12 @@ async def process_method(**kwargs) -> None:
     shutil.rmtree(session_path)
     for file in [f'({step})_Valid-{random_uniqe_code}.txt', f'({step})_Valid-{random_uniqe_code}.zip', f'({step})_Invalid-{random_uniqe_code}.zip']:
         if os.path.exists(file):
-            await bot.send_file(entity = user_id, file = file, buttons = start_key())
+            await bot.send_file(
+                entity = user_id,
+                file = file,
+                caption = '<b>➡️ Countries: (' + '/'.join(map(str, flags)) + ')</b>',
+                buttons = start_key()
+            )
             os.unlink(file)
 
     # ------------------------------------------ #

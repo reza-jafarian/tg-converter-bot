@@ -4,21 +4,11 @@ from phonenumbers import geocoder
 from typing import Union
 import phonenumbers
 import requests
-import re
-import logging
 import asyncio
+import re
 
 from src.utils.logger import logger
 from src.utils.functions import *
-
-# logging.basicConfig(
-#     level=logging.DEBUG, 
-#     format="%(asctime)s - %(levelname)s - %(message)s",
-#     handlers=[
-#         logging.FileHandler("telethon_debug.log"),
-#         logging.StreamHandler()
-#     ]
-# )
 
 class TelegramExceptionHandler:
     @staticmethod
