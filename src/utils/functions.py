@@ -10,7 +10,7 @@ import phonenumbers
 
 import zipfile
 import asyncio
-import aiohttp # type: ignore
+import aiohttp
 import random
 import string
 import shutil
@@ -19,9 +19,9 @@ import glob
 import os
 import re
 
-from opentele.api import UseCurrentSession
-from opentele.tl import TelegramClient
-from opentele.td import TDesktop
+from opentele.api import UseCurrentSession # type: ignore
+from opentele.tl import TelegramClient # type: ignore
+from opentele.td import TDesktop # type: ignore
 
 from src.database.models import User, redis_db
 from src.telegram.telegram import Telegram
